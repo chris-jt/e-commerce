@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: merchandise
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: merchandise
+  template:
+    metadata:
+      labels:
+        app: merchandise
+    spec:
+      containers:
+      - name: merchandise
+        image: chtronconi/merchandise:latest
+        ports:
+        - containerPort: 3003
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: merchandise
+spec:
+  selector:
+    app: merchandise
+  ports:
+  - port: 80
+    targetPort: 3003
