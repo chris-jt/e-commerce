@@ -62,7 +62,7 @@ La empresa ZERO Technology ha lanzado un nuevo proyecto que requiere la implemen
 
       Inicializa Terraform: terraform init
       Aplica la configuración: terraform apply
-      Una vez que el cluster EKS esté listo, configura kubectl: aws eks --region us-west-2 update-kubeconfig --name my-cluster
+      Una vez que el cluster EKS esté listo, configura kubectl: aws eks --region us-east-1 update-kubeconfig --name my-cluster
       Despliega la aplicación: kubectl apply -f k8s/
 
 ### **Resultado Esperado:**
