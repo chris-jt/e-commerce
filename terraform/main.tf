@@ -6,7 +6,7 @@ provider "aws" {
 # Módulo VPC
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "3.14.0"
+  version = "5.0.0"
 
   name = "ecommerce-vpc"
   cidr = "10.0.0.0/16"
