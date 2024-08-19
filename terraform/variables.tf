@@ -1,12 +1,19 @@
-# Variables
 variable "region" {
   description = "AWS region"
-  type        = string
   default     = "us-east-1"
 }
 
 variable "cluster_name" {
-  description = "Nombre del EKS cluster"
+  description = "Name of the EKS cluster"
+  default     = "my-eks-cluster"
+}
+
+variable "vpc_id" {
+  description = "ID of the VPC"
   type        = string
-  default     = "ecommerce-cluster"
+}
+
+variable "subnet_ids" {
+  description = "List of subnet IDs for EKS"
+  type        = list(string)
 }

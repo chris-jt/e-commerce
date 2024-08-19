@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: merchandise
 spec:
-  replicas: 2
+  replicas: 3
   selector:
     matchLabels:
       app: merchandise
@@ -14,9 +14,15 @@ spec:
     spec:
       containers:
       - name: merchandise
-        image: chtronconi/merchandise:latest
+        image: <ECR_REGISTRY>/merchandise:<IMAGE_TAG>
         ports:
         - containerPort: 3003
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 10
+          periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -26,5 +32,6 @@ spec:
   selector:
     app: merchandise
   ports:
-  - port: 80
-    targetPort: 3003
+    - port: 80
+      targetPort: 3003
+  type: LoadBalancer

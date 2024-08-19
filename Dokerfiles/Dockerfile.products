@@ -1,7 +1,11 @@
 FROM node:14
+
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
+
+COPY products/package*.json ./
+RUN npm ci
+
+COPY products/ .
+
 EXPOSE 3001
 CMD ["node", "server.js"]

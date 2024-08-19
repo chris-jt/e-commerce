@@ -4,56 +4,76 @@ name: CI/CD Pipeline
 on:
   workflow_dispatch:
     inputs:
-      confirm_deploy:
-        description: 'Type "DEPLOY" to confirm infrastructure deployment'
+      confirmation:
+        description: 'escriba "DEPLOY" para confirmar'
         required: true
-        type: string
 
 jobs:
-  build-and-deploy:
+  validate-confirmation:
     runs-on: ubuntu-latest
-    
+    steps:
+    - name: Check confirmation word
+      run: |
+        if [ "${{ github.event.inputs.confirmation }}" != "DEPLOY" ]; then
+          echo "La palabra de confirmación no es correcta. El pipeline no se ejecutará."
+          exit 1
+        fi
+
+  build-and-test:
+    needs: validate-confirmation
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+    - name: Install dependencies and run tests
+      run: |
+        for dir in frontend microservicio1 microservicio2 microservicio3; do
+          cd $dir
+          npm ci
+          npm test
+          cd ..
+        done
+
+  build-and-push-docker:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
-
-    - name: Terraform Init
-      run: terraform init
-      working-directory: ./terraform
-
-    - name: Terraform Plan
-      run: terraform plan
-      working-directory: ./terraform
-
-    - name: Terraform Apply
-      run: terraform apply -auto-approve
-      working-directory: ./terraform
-   
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
-
-    - name: Build, tag, and push image to Amazon ECR
+    - name: Build, tag, and push images to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: my-ecr-repo
-        IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        for service in frontend microservicio1 microservicio2 microservicio3; do
+          docker build -t $ECR_REGISTRY/$service:${{ github.sha }} -f Dockerfiles/Dockerfile.$service .
+          docker push $ECR_REGISTRY/$service:${{ github.sha }}
+        done
 
-    - name: Update kubeconfig
-      run: aws eks get-token --cluster-name ecommerce-cluster | kubectl apply -f -
-
+  deploy:
+    needs: build-and-push-docker
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
     - name: Deploy to EKS
       run: |
-        kubectl apply -f k8s/
+        aws eks --region us-east-1 update-kubeconfig --name my-eks-cluster
+        sed -i 's|<ECR_REGISTRY>|${{ steps.login-ecr.outputs.registry }}|g' kubernetes/*.yaml
+        sed -i 's|<IMAGE_TAG>|${{ github.sha }}|g' kubernetes/*.yaml
+        kubectl apply -f kubernetes/

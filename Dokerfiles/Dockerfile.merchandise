@@ -1,0 +1,11 @@
+FROM node:14
+
+WORKDIR /app
+
+COPY merchandise/package*.json ./
+RUN npm ci
+
+COPY merchandise/ .
+
+EXPOSE 3003
+CMD ["node", "server.js"]

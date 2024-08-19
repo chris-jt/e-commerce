@@ -1,0 +1,11 @@
+FROM node:14
+
+WORKDIR /app
+
+COPY shopping-cart/package*.json ./
+RUN npm ci
+
+COPY shopping-cart/ .
+
+EXPOSE 3002
+CMD ["node", "server.js"]
