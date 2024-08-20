@@ -66,9 +66,17 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
+        pwd
+        ls -la
+        ls -la Dockerfiles || echo "Dockerfiles directory not found"
         for service in frontend merchandise products shopping-cart; do
-          docker build -t $ECR_REGISTRY/$service:${{ github.sha }} -f Dockerfiles/Dockerfile.$service .
-          docker push $ECR_REGISTRY/$service:${{ github.sha }}
+          echo "Building $service"
+          if [ -f "Dockerfiles/Dockerfile.$service" ]; then
+            docker build -t $ECR_REGISTRY/$service:${{ github.sha }} -f Dockerfiles/Dockerfile.$service .
+            docker push $ECR_REGISTRY/$service:${{ github.sha }}
+          else
+            echo "Dockerfile.$service not found"
+          fi
         done
 
   deploy:
