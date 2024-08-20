@@ -51,11 +51,22 @@ jobs:
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
+    
+    - name: Check working directory
+      run: |
+        pwd
+        ls -la
+    
+    - name: Change to correct directory if needed
+      run: |
+        cd $GITHUB_WORKSPACE
+        pwd
+        ls -la
     - name: Build, tag, and push images to Amazon ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
       run: |
-        for service in frontend frontend merchandise products shopping-cart; do
+        for service in frontend merchandise products shopping-cart; do
           docker build -t $ECR_REGISTRY/$service:${{ github.sha }} -f Dockerfiles/Dockerfile.$service .
           docker push $ECR_REGISTRY/$service:${{ github.sha }}
         done
