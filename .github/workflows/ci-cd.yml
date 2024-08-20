@@ -30,7 +30,7 @@ jobs:
         node-version: '14'
     - name: Install dependencies and run tests
       run: |
-        for dir in frontend microservicio1 microservicio2 microservicio3; do
+        for dir in frontend merchandise products shopping-cart; do
           cd $dir
           npm ci
           npm test
