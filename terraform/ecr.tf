@@ -1,5 +1,5 @@
 resource "aws_ecr_repository" "repos" {
-  for_each = toset(["frontend", "microservicio1", "microservicio2", "microservicio3"])
+  for_each = toset(["frontend", "merchandise", "products", "shopping-cart"])
   name     = each.key
 }
 
