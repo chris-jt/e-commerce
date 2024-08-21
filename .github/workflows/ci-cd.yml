@@ -46,11 +46,14 @@ jobs:
       uses: hashicorp/setup-terraform@v1
     - name: Terraform Init
       run: terraform init
+      working-directory: ./terraform  
+    - name: Terraform Init
+      run: terraform init
     - name: Terraform Apply
       run: terraform apply -auto-approve  
 
   build-and-push-docker:
-    needs: build-and-test
+    needs: terraform-apply
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
@@ -92,7 +95,7 @@ jobs:
         done
       
   deploy:
-    needs: [build-and-push-docker, terraform-apply]
+    needs: terraform-apply
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
