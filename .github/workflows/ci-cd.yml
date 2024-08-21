@@ -1,116 +1,84 @@
 
-name: Deploy Infraestructura
+name: CI/CD
 
 on:
-  workflow_dispatch:
-    inputs:
-      confirmation:
-        description: 'escriba "DEPLOY" para confirmar'
-        required: true
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  validate-confirmation:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Check confirmation word
-      run: |
-        if [ "${{ github.event.inputs.confirmation }}" != "DEPLOY" ]; then
-          echo "La palabra de confirmación no es correcta. El pipeline no se ejecutará."
-          exit 1
-        fi
 
-  build-and-test:
-    needs: validate-confirmation
+  build-and-deploy:
     runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: '14'
-    - name: Install dependencies and run tests
-      run: |
-        for dir in frontend merchandise products shopping-cart; do
-          cd $dir
-          npm ci
-          npm test
-          cd ..
-        done
-  
-  terraform-apply:
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
     
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
-    
-    - name: Navigate to Terraform directory
-      run: cd terraform
-    
-    - name: Initialize Terraform
-      run: terraform init
-    
-    - name: Apply Terraform
-      run: terraform apply -auto-approve
-
-  build-and-push-docker:
-    needs: terraform-apply
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v1
-    
-    - name: Check working directory
-      run: |
-        pwd
-        ls -la
-    
-    - name: Change to correct directory if needed
-      run: |
-        cd $GITHUB_WORKSPACE
-        pwd
-        ls -la
-    - name: Build, tag, and push images to Amazon ECR
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-      run: |
-        pwd
-        ls -la
-        ls -la Dockerfiles || echo "Dockerfiles directory not found"
-        for service in frontend merchandise products shopping-cart; do
-          echo "Building $service"
-          if [ -f "Dockerfiles/Dockerfile.$service" ]; then
-            docker build -t $ECR_REGISTRY/$service:${{ github.sha }} -f Dockerfiles/Dockerfile.$service .
-            docker push $ECR_REGISTRY/$service:${{ github.sha }}
-          else
-            echo "Dockerfile.$service not found"
-          fi
-        done
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+      CLUSTER_NAME: my-eks-cluster
       
-  deploy:
-    needs: terraform-apply
-    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+    
+    # Build and push Docker images
+    - name: Build and push frontend image
+      uses: docker/build-push-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: your-docker-username/frontend
+        tag_with_ref: true
+        
+    - name: Build and push merchandise image  
+      uses: docker/build-push-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: your-docker-username/merchandise
+        tag_with_ref: true
+        
+    - name: Build and push products image
+      uses: docker/build-push-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: your-docker-username/products
+        tag_with_ref: true
+        
+    - name: Build and push shopping-cart image
+      uses: docker/build-push-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        repository: your-docker-username/shopping-cart
+        tag_with_ref: true
+        
+    # Deploy to EKS
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v1
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Install Terraform
+      uses: hashicorp/setup-terraform@v1
+      
+    - name: Terraform init
+      run: |
+        cd terraform
+        terraform init
+        
+    - name: Terraform apply
+      run: |
+        cd terraform
+        terraform apply -auto-approve
+        
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v1
+      
     - name: Deploy to EKS
       run: |
-        aws eks --region us-east-1 update-kubeconfig --name ecommerce-cluster
-        sed -i 's|<ECR_REGISTRY>|${{ steps.login-ecr.outputs.registry }}|g' kubernetes/*.yaml
-        sed -i 's|<IMAGE_TAG>|${{ github.sha }}|g' kubernetes/*.yaml
+        # Deploy Kubernetes resources
         kubectl apply -f kubernetes/
